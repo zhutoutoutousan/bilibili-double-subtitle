@@ -1,0 +1,12 @@
+.bili-subtitle-x-subtitle-panel-minor-group {
+  display: block !important;
+  margin-top: 5px;
+}
+
+.translated-subtitle {
+  font-family: Arial, sans-serif;
+  line-height: 1.2;
+  text-align: center;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+} 
