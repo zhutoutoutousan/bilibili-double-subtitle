@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Extension Icons</title>
+</head>
+<body>
+    <h1>Extension Icons</h1>
+    <canvas id="icon16" width="16" height="16"></canvas>
+    <canvas id="icon48" width="48" height="48"></canvas>
+    <canvas id="icon128" width="128" height="128"></canvas>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Set background
+            ctx.fillStyle = '#FB7299'; // Bilibili pink
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw translation symbol (A↔あ)
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw "A"
+            ctx.fillText('A', size * 0.35, size * 0.4);
+            
+            // Draw "あ"
+            ctx.font = `bold ${size * 0.35}px Arial`;
+            ctx.fillText('あ', size * 0.65, size * 0.6);
+            
+            // Draw arrows
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.06;
+            
+            // Left arrow
+            ctx.beginPath();
+            ctx.moveTo(size * 0.4, size * 0.7);
+            ctx.lineTo(size * 0.5, size * 0.7);
+            ctx.moveTo(size * 0.43, size * 0.65);
+            ctx.lineTo(size * 0.4, size * 0.7);
+            ctx.lineTo(size * 0.43, size * 0.75);
+            
+            // Right arrow
+            ctx.moveTo(size * 0.6, size * 0.7);
+            ctx.lineTo(size * 0.5, size * 0.7);
+            ctx.moveTo(size * 0.57, size * 0.65);
+            ctx.lineTo(size * 0.6, size * 0.7);
+            ctx.lineTo(size * 0.57, size * 0.75);
+            
+            ctx.stroke();
+        }
+
+        // Generate icons
+        drawIcon('icon16', 16);
+        drawIcon('icon48', 48);
+        drawIcon('icon128', 128);
+
+        // Download function
+        function downloadIcon(canvasId, fileName) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Download all icons
+        setTimeout(() => {
+            downloadIcon('icon16', 'icon16.png');
+            downloadIcon('icon48', 'icon48.png');
+            downloadIcon('icon128', 'icon128.png');
+        }, 1000);
+    </script>
+</body>
+</html> 
