@@ -4,6 +4,9 @@ let settings = {
   fontSize: 'medium'
 };
 
+// Keep track of pending translations
+const pendingTranslations = new Map();
+
 // Load settings when content script starts
 chrome.storage.sync.get(
   {
@@ -17,11 +20,19 @@ chrome.storage.sync.get(
   }
 );
 
-// Listen for settings updates
+// Listen for messages
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'settingsUpdated') {
-    settings = message.settings;
-    updateSubtitleStyles();
+  switch (message.type) {
+    case 'settingsUpdated':
+      settings = message.settings;
+      updateSubtitleStyles();
+      break;
+    case 'translationRetrySuccess':
+      handleTranslationRetrySuccess(message);
+      break;
+    case 'translationRetryFailed':
+      handleTranslationRetryFailure(message);
+      break;
   }
 });
 
@@ -58,28 +69,52 @@ async function handleSubtitleUpdate(subtitlePanel) {
   const originalText = subtitlePanel.querySelector('.bili-subtitle-x-subtitle-panel-text')?.textContent;
   if (!originalText) return;
 
+  // If this text is already being translated, don't start another translation
+  if (pendingTranslations.has(originalText)) return;
+
   try {
-    const translatedText = await translateText(originalText, settings.targetLang);
-    injectTranslatedSubtitle(translatedText, subtitlePanel);
+    pendingTranslations.set(originalText, true);
+
+    // Send translation request to background script
+    const response = await chrome.runtime.sendMessage({
+      type: 'translateText',
+      text: originalText,
+      targetLang: settings.targetLang
+    });
+
+    if (response.error) {
+      console.log('Initial translation failed, waiting for retry...', response.error);
+      // Show loading state
+      injectTranslatedSubtitle('Translating...', subtitlePanel, true);
+      return;
+    }
+
+    pendingTranslations.delete(originalText);
+    injectTranslatedSubtitle(response.translation, subtitlePanel);
   } catch (error) {
+    pendingTranslations.delete(originalText);
     console.error('Translation error:', error);
+    injectTranslatedSubtitle('Translation error. Please try again.', subtitlePanel, true);
   }
 }
 
-async function translateText(text, targetLang) {
-  // Using Google Translate API
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-  
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    return data[0][0][0];
-  } catch (error) {
-    throw new Error('Translation failed: ' + error.message);
-  }
+function handleTranslationRetrySuccess(message) {
+  const subtitlePanel = document.querySelector('.bili-subtitle-x-subtitle-panel');
+  if (!subtitlePanel) return;
+
+  pendingTranslations.delete(message.originalText);
+  injectTranslatedSubtitle(message.translation, subtitlePanel);
 }
 
-function injectTranslatedSubtitle(translatedText, subtitlePanel) {
+function handleTranslationRetryFailure(message) {
+  const subtitlePanel = document.querySelector('.bili-subtitle-x-subtitle-panel');
+  if (!subtitlePanel) return;
+
+  pendingTranslations.delete(message.originalText);
+  injectTranslatedSubtitle('Translation service unavailable. Please try again later.', subtitlePanel, true);
+}
+
+function injectTranslatedSubtitle(translatedText, subtitlePanel, isError = false) {
   const minorGroup = subtitlePanel.querySelector('.bili-subtitle-x-subtitle-panel-minor-group');
   if (!minorGroup) return;
 
@@ -93,7 +128,9 @@ function injectTranslatedSubtitle(translatedText, subtitlePanel) {
     translatedSubtitle.style.marginTop = '5px';
     minorGroup.appendChild(translatedSubtitle);
   }
+
   translatedSubtitle.textContent = translatedText;
+  translatedSubtitle.style.color = isError ? '#ff6b6b' : 'white';
 }
 
 function updateSubtitleStyles() {
@@ -109,6 +146,7 @@ function updateSubtitleStyles() {
       font-size: ${fontSizes[settings.fontSize]} !important;
       color: white !important;
       text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+      transition: color 0.3s ease;
     }
   `;
 
